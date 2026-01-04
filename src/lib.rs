@@ -10,7 +10,6 @@ pub mod agent_registry {
         let agent = &mut ctx.accounts.agent;
 
         require!(agent.is_active, CustomError::AgentInactive);
-        agent.is_active = true;
         Ok(())
     }
 }

@@ -9,11 +9,15 @@ pub mod agent_registry {
     pub fn register_agent(ctx: Context<RegisterAgent>) -> Result<()> {
         let agent = &mut ctx.accounts.agent;
 
-        agent.agent_pubkey = ctx.accounts.user.key();
+        require!(agent.is_active, CustomError::AgentInactive);
         agent.is_active = true;
-
         Ok(())
     }
+}
+
+pub enum CustomError{
+    #[msg("Agent is inactive")]
+    AgentInactive,
 }
 
 #[account]

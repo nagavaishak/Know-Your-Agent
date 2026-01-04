@@ -8,15 +8,39 @@ pub mod agent_registry {
 
     pub fn register_agent(ctx: Context<RegisterAgent>) -> Result<()> {
         let agent = &mut ctx.accounts.agent;
-
-        require!(agent.is_active, CustomError::AgentInactive);
+    
+        agent.agent_pubkey = ctx.accounts.user.key();
+        agent.is_active = true;
+    
         Ok(())
     }
+
+    pub fn deactivate_agent(ctx: Context<DeactivateAgent>) -> Result<()>{
+        let agent = &mut ctx.accounts.agent;
+
+        require!(agent.agent_pubkey == ctx.account.user.key(), 
+        CustomError::Unauthorized
+    );
+
+        require!(agent.is_active, 
+            CustomError::AlreadyInactive
+        );
+
+        agent.is_active = false;
+    }
+
 }
 
-pub enum CustomError{
+#[error_code]
+pub enum CustomError {
     #[msg("Agent is inactive")]
     AgentInactive,
+
+    #[msg("Only the owner can modify the agent")]
+    Unauthorized,
+
+    #[msg("You cannot deactivate an already inactive agent")]
+    AlreadyInactive,
 }
 
 #[account]
@@ -40,4 +64,16 @@ pub struct RegisterAgent<'info> {
     pub user: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct DeactivateAgent<'info> {
+    #[account(
+        mut,
+        seeds = [b"agent", user.key().as_ref()],
+        bump
+    )]
+    pub agent: Account<'info, Agent>,
+
+    pub user: Signer<'info>,
 }

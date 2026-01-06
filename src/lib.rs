@@ -18,7 +18,7 @@ pub mod agent_registry {
     pub fn deactivate_agent(ctx: Context<DeactivateAgent>) -> Result<()>{
         let agent = &mut ctx.accounts.agent;
 
-        require!(agent.agent_pubkey == ctx.account.user.key(), 
+        require!(agent.agent_pubkey == ctx.accounts.user.key(), 
         CustomError::Unauthorized
         );
 
@@ -67,7 +67,14 @@ pub mod agent_registry {
     
     pub fn penalize_agent(ctx: Context<PenalizeAgent>) -> Result<()> {
         let agent = &mut ctx.accounts.agent;
+        let config = &ctx.accounts.config;
     
+        // Authority invariant: only admin can penalize
+        require!(
+            config.admin_pubkey == ctx.accounts.admin.key(),
+            CustomError::Unauthorized
+        );
+        
         // Invariant 1: agent must be active
         require!(
             agent.is_active,
@@ -86,6 +93,14 @@ pub mod agent_registry {
         Ok(())
     }
     
+    pub fn initialize_config(ctx: Context<InitializeConfig>) -> Result<()> {
+        let config = &mut ctx.accounts.config;
+    
+        // Set the admin at initialization time
+        config.admin_pubkey = ctx.accounts.user.key();
+    
+        Ok(())
+    }
     
 }
 
@@ -112,6 +127,11 @@ pub struct Agent {
     pub agent_pubkey: Pubkey,
     pub is_active: bool,
     pub reputation: u64,
+}
+
+#[account]
+pub struct GlobalConfig {
+    pub admin_pubkey: Pubkey,
 }
 
 #[derive(Accounts)]
@@ -171,10 +191,34 @@ pub struct ReactivateAgent<'info> {
 pub struct PenalizeAgent<'info> {
     #[account(
         mut,
-        seeds = [b"agent", user.key().as_ref()],
+        seeds = [b"agent", agent.agent_pubkey.as_ref()],
         bump
     )]
-
     pub agent: Account<'info, Agent>,
+
+    #[account(
+        seeds = [b"config"],
+        bump
+    )]
+    pub config: Account<'info, GlobalConfig>,
+
+    pub admin: Signer<'info>,
+}
+
+
+#[derive(Accounts)]
+pub struct InitializeConfig<'info> {
+    #[account(
+        init,
+        payer = user,
+        seeds = [b"config"],
+        bump,
+        space = 8 + 32
+    )]
+    pub config: Account<'info, GlobalConfig>,
+
+    #[account(mut)]
     pub user: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }

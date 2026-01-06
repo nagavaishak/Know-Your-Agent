@@ -65,6 +65,27 @@ pub mod agent_registry {
         Ok(())
     }
     
+    pub fn penalize_agent(ctx: Context<PenalizeAgent>) -> Result<()> {
+        let agent = &mut ctx.accounts.agent;
+    
+        // Invariant 1: agent must be active
+        require!(
+            agent.is_active,
+            CustomError::AgentInactive
+        );
+    
+        // Invariant 2: reputation must be > 0
+        require!(
+            agent.reputation > 0,
+            CustomError::AlreadyZero
+        );
+    
+        // Safe decrement
+        agent.reputation = agent.reputation.checked_sub(1).unwrap();
+    
+        Ok(())
+    }
+    
     
 }
 
@@ -81,6 +102,9 @@ pub enum CustomError {
 
     #[msg("Agent is already active")]
     AlreadyActive,
+
+    #[msg("reputation is already 0")]
+    AlreadyZero,
 }
 
 #[account]
@@ -133,6 +157,18 @@ pub struct PerformAction<'info> {
 
 #[derive(Accounts)]
 pub struct ReactivateAgent<'info> {
+    #[account(
+        mut,
+        seeds = [b"agent", user.key().as_ref()],
+        bump
+    )]
+
+    pub agent: Account<'info, Agent>,
+    pub user: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct PenalizeAgent<'info> {
     #[account(
         mut,
         seeds = [b"agent", user.key().as_ref()],

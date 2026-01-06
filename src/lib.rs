@@ -32,15 +32,18 @@ pub mod agent_registry {
     }
 
     pub fn perform_action(ctx: Context<PerformAction>) -> Result<()> {
-        let agent = &ctx.accounts.agent;
+        let agent = &mut ctx.accounts.agent;
     
         require!(
             agent.is_active,
             CustomError::AgentInactive
         );
     
+        agent.reputation = agent.reputation.checked_add(1).unwrap();
+    
         Ok(())
     }
+    
 
     pub fn reactivate_agent(ctx: Context<ReactivateAgent>) -> Result<()> {
         let agent = &mut ctx.accounts.agent;
@@ -84,6 +87,7 @@ pub enum CustomError {
 pub struct Agent {
     pub agent_pubkey: Pubkey,
     pub is_active: bool,
+    pub reputation: u64,
 }
 
 #[derive(Accounts)]
@@ -93,7 +97,7 @@ pub struct RegisterAgent<'info> {
         payer = user,
         seeds = [b"agent", user.key().as_ref()],
         bump,
-        space = 8 + 32 + 1
+        space = 8 + 32 + 1 + 8
     )]
     pub agent: Account<'info, Agent>,
 

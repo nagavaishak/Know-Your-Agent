@@ -20,14 +20,28 @@ pub mod agent_registry {
 
         require!(agent.agent_pubkey == ctx.account.user.key(), 
         CustomError::Unauthorized
-    );
+        );
 
         require!(agent.is_active, 
             CustomError::AlreadyInactive
         );
 
         agent.is_active = false;
+
+        Ok(())
     }
+
+    pub fn perform_action(ctx: Context<PerformAction>) -> Result<()> {
+        let agent = &ctx.accounts.agent;
+    
+        require!(
+            agent.is_active,
+            CustomError::AgentInactive
+        );
+    
+        Ok(())
+    }
+    
 
 }
 
@@ -41,6 +55,7 @@ pub enum CustomError {
 
     #[msg("You cannot deactivate an already inactive agent")]
     AlreadyInactive,
+
 }
 
 #[account]
@@ -73,7 +88,19 @@ pub struct DeactivateAgent<'info> {
         seeds = [b"agent", user.key().as_ref()],
         bump
     )]
-    pub agent: Account<'info, Agent>,
 
+    pub agent: Account<'info, Agent>,
+    pub user: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct PerformAction<'info> {
+    #[account(
+        mut,
+        seeds = [b"agent", user.key().as_ref()],
+        bump
+    )]
+
+    pub agent: Account<'info, Agent>,
     pub user: Signer<'info>,
 }

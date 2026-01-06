@@ -65,7 +65,7 @@ pub mod agent_registry {
         Ok(())
     }
     
-    pub fn penalize_agent(ctx: Context<PenalizeAgent>) -> Result<()> {
+    pub fn penalize_agent(ctx: Context<PenalizeAgent>, penalty_amount: u64) -> Result<()> {
         let agent = &mut ctx.accounts.agent;
         let config = &ctx.accounts.config;
     
@@ -86,9 +86,14 @@ pub mod agent_registry {
             agent.reputation > 0,
             CustomError::AlreadyZero
         );
+
+        require!(
+            penalty_amount > 0 && penalty_amount <= agent.reputation,
+            CustomError::ChoosePenalty
+        );        
     
         // Safe decrement
-        agent.reputation = agent.reputation.checked_sub(1).unwrap();
+        agent.reputation = agent.reputation.checked_sub(penalty_amount).unwrap();
     
         Ok(())
     }
@@ -120,6 +125,9 @@ pub enum CustomError {
 
     #[msg("reputation is already 0")]
     AlreadyZero,
+
+    #[msg("Penalty must be greater than 0 and less than or equal to reputation")]
+    ChoosePenalty,
 }
 
 #[account]

@@ -120,6 +120,31 @@ pub mod agent_registry {
         Ok(())
     }
     
+    pub fn get_price(ctx: Context<GetPrice>) -> Result<u64> {
+        let agent = &ctx.accounts.agent;
+        let base: u64 = 100;
+    
+        // Agent must be active
+        require!(
+            agent.is_active,
+            CustomError::AgentInactive
+        );
+    
+        // Reputation gate
+        require!(
+            agent.reputation >= 10,
+            CustomError::LowReputation
+        );
+    
+        let price = if agent.reputation >= 50 {
+            base / 2
+        } else {
+            base
+        };
+    
+        Ok(price)
+    }
+    
 }
 
 #[error_code]
@@ -144,6 +169,9 @@ pub enum CustomError {
 
     #[msg("Penalty must be less than given MAX_PENALTY_PER_ACTION")]
     PenaltyTooLarge
+
+    #[msg("Reputation too low to access service")]
+    LowReputation,
 }
 
 #[account]
@@ -245,4 +273,15 @@ pub struct InitializeConfig<'info> {
     pub user: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct GetPrice<'info> {
+    #[account(
+        seeds = [b"agent", agent.agent_pubkey.as_ref()],
+        bump
+    )]
+    pub agent: Account<'info, Agent>,
+
+    pub user: Signer<'info>,
 }

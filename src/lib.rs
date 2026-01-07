@@ -387,7 +387,7 @@ pub struct UpdatePricingConfig<'info> {
 pub struct PerformActionWithPayment<'info> {
     #[account(
         mut, //agent is mut → reputation updated
-        seeds = [b"agent", agent.agent_pubkey().as_ref()],
+        seeds = [b"agent", agent.agent_pubkey.as_ref()],
         bump,
     )]
     pub agent: Account<'info, Agent>,

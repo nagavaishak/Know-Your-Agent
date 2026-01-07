@@ -150,7 +150,7 @@ pub mod agent_registry {
 
         let config = &mut ctx.accounts.config;
 
-        // Authority check
+    // Authority check
     require!(
         config.admin_pubkey == ctx.accounts.admin.key(),
         CustomError::Unauthorized
@@ -168,6 +168,47 @@ pub mod agent_registry {
     config.discount_percent = discount_percent;
     config.min_reputation = min_reputation;
         
+        Ok(())
+    }
+
+    pub fn perform_action_with_payment(ctx : Context<PerformActionWithPayment>) -> Result<()> {
+        let agent = &mut ctx.accounts.agent;
+        let config = &ctx.accounts.config;
+
+        // Agent must be active
+        require!(
+            agent.is_active,
+            CustomError::AgentInactive
+        );
+
+        // Minimum Reputation gate
+        require!(
+            agent.reputation >= config.min_reputation,
+            CustomError::LowReputation
+        );
+
+        let base_price = config.base_price;
+
+        let price = if agent.reputation >= config.discount_threshold { //In Rust, if returns a value, so you assign the whole if expression to a variable.
+            base_price.checked_mul(100 - config.discount_percent as u64).unwrap().checked_div(100).unwrap()
+        } else {
+            base_price
+        };
+
+        // SOL transfer (CPI)
+        let ix = anchor_lang::system_program::Transfer {
+            from: ctx.accounts.user.to_account_info(),
+            to: ctx.accounts.treasury.to_account_info(),
+        };
+
+        anchor_lang::system_program::transfer(
+            CpiContext::new(ctx.accounts.system_program.to_account_info(), ix),
+            price,
+        )?;
+        
+        //Perform the action
+        agent.reputation = agent.reputation.checked_add(1).unwrap();
+
         Ok(())
     }
 }
@@ -218,6 +259,9 @@ pub struct GlobalConfig {
     pub discount_percent: u8,       // % discount (0–100)
     pub min_reputation: u64,        // below this → blocked
 }
+
+#[account]
+pub struct Treasury {} ///Empty becuase SOL balance is tracked by the runtime
 
 
 #[derive(Accounts)]
@@ -336,4 +380,33 @@ pub struct UpdatePricingConfig<'info> {
     pub config: Account<'info, GlobalConfig>,
 
     pub admin: Signer<'info>,
+}
+
+// Treasury PDA
+#[derive(Accounts)]
+pub struct PerformActionWithPayment<'info> {
+    #[account(
+        mut, //agent is mut → reputation updated
+        seeds = [b"agent", agent.agent_pubkey().as_ref()],
+        bump,
+    )]
+    pub agent: Account<'info, Agent>,
+
+    #[account(
+        seeds = [b"config"],
+        bump,
+    )]
+    pub config: Account<'info, GlobalConfig>,
+
+    #[account(
+        mut, //treasury is mut → SOL added
+        seeds = [b"treasury"],
+        bump,
+    )]
+    pub treasury = Account<'info, Treasury>,
+
+    #[account(mut)]
+    pub user: Signer<'info>, ////user is mut → SOL deducted
+
+    pub system_program: Program<'info, System>,
 }

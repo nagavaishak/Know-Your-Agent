@@ -142,13 +142,28 @@ pub mod agent_registry {
     
         Ok(price)
     }
-    
-    pub fn update_pricing_config(ctx: Context<UpdatePricingConfig>) -> Result<()> {
-         let config = &mut ctx.accounts.config;
 
-        require!(
-            config.admin_pubkey = ctx.accounts.user.key();
-        );
+    pub fn update_pricing_config(ctx: Context<UpdatePricingConfig>, base_price: u64, discount_threshold: u64, discount_percent: u8, min_reputation: u64,) -> Result<()> {
+
+        let config = &mut ctx.accounts.config;
+
+        // Authority check
+    require!(
+        config.admin_pubkey == ctx.accounts.admin.key(),
+        CustomError::Unauthorized
+    );
+
+    // Validate inputs
+    require!(
+        discount_percent <= 100, //why we dint config.discount_percent because config. checks the existing stored value, not the new value the admin is trying to set
+        CustomError::InvalidDiscount
+    );
+
+    // Update config
+    config.base_price = base_price;
+    config.discount_threshold = discount_threshold;
+    config.discount_percent = discount_percent;
+    config.min_reputation = min_reputation;
         
         Ok(())
     }
@@ -179,6 +194,10 @@ pub enum CustomError {
 
     #[msg("Reputation too low to access service")]
     LowReputation,
+
+    #[msg("Discount percent must be between 0 and 100")]
+    InvalidDiscount,
+
 }
 
 #[account]
@@ -295,5 +314,18 @@ pub struct GetPrice<'info> {
     )]
 
     pub agent: Account<'info, Agent>,
+    pub user: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct UpdatePricingConfig<'info> {
+    #[account(
+        mut,
+        seeds = [b"config"],
+        bump
+    )]
+
+    pub config: Account<'info, GlobalConfig>,
+
     pub user: Signer<'info>,
 }

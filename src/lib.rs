@@ -67,10 +67,7 @@ pub mod agent_registry {
         Ok(())
     }
     
-    pub fn penalize_agent(
-        ctx: Context<PenalizeAgent>,
-        penalty_amount: u64,
-    ) -> Result<()> {
+    pub fn penalize_agent(ctx: Context<PenalizeAgent>, penalty_amount: u64,) -> Result<()> {
         let agent = &mut ctx.accounts.agent;
         let config = &ctx.accounts.config;
     
@@ -109,8 +106,6 @@ pub mod agent_registry {
         Ok(())
     }
     
-    }
-    
     pub fn initialize_config(ctx: Context<InitializeConfig>) -> Result<()> {
         let config = &mut ctx.accounts.config;
     
@@ -122,7 +117,6 @@ pub mod agent_registry {
     
     pub fn get_price(ctx: Context<GetPrice>) -> Result<u64> {
         let agent = &ctx.accounts.agent;
-        let base: u64 = 100;
     
         // Agent must be active
         require!(
@@ -145,6 +139,15 @@ pub mod agent_registry {
         Ok(price)
     }
     
+    pub fn update_pricing_config(ctx: Context<UpdatePricingConfig>) -> Result<()> {
+         let config = &mut ctx.accounts.config;
+
+        require!(
+            config.admin_pubkey = ctx.accounts.user.key();
+        );
+        
+        Ok(())
+    }
 }
 
 #[error_code]
@@ -183,8 +186,13 @@ pub struct Agent {
 
 #[account]
 pub struct GlobalConfig {
-    pub admin_pubkey: Pubkey,
+    pub admin_pubkey: Pubkey,      // who controls config
+    pub base_price: u64,            // normal price
+    pub discount_threshold: u64,    // reputation needed for discount
+    pub discount_percent: u8,       // % discount (0–100)
+    pub min_reputation: u64,        // below this → blocked
 }
+
 
 #[derive(Accounts)]
 pub struct RegisterAgent<'info> {
@@ -265,7 +273,7 @@ pub struct InitializeConfig<'info> {
         payer = user,
         seeds = [b"config"],
         bump,
-        space = 8 + 32
+        space = 8 + 32 + 8 + 8 + 1 + 8
     )]
     pub config: Account<'info, GlobalConfig>,
 
@@ -281,7 +289,7 @@ pub struct GetPrice<'info> {
         seeds = [b"agent", agent.agent_pubkey.as_ref()],
         bump
     )]
-    pub agent: Account<'info, Agent>,
 
+    pub agent: Account<'info, Agent>,
     pub user: Signer<'info>,
 }

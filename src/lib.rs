@@ -108,6 +108,10 @@ pub mod agent_registry {
     
     pub fn initialize_config(ctx: Context<InitializeConfig>) -> Result<()> {
         let config = &mut ctx.accounts.config;
+        config.base_price = 100;
+        config.discount_threshold = 50;
+        config.discount_percent = 50;
+        config.min_reputation = 10;
     
         // Set the admin at initialization time
         config.admin_pubkey = ctx.accounts.user.key();

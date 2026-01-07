@@ -325,3 +325,15 @@ pub struct GetPrice<'info> {
 
     pub user: Signer<'info>,
 }
+
+#[derive(Accounts)]
+pub struct UpdatePricingConfig<'info> {
+    #[account(
+        mut,
+        seeds = [b"config"],
+        bump
+    )]
+    pub config: Account<'info, GlobalConfig>,
+
+    pub admin: Signer<'info>,
+}

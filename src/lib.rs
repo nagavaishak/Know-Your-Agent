@@ -121,6 +121,7 @@ pub mod agent_registry {
     
     pub fn get_price(ctx: Context<GetPrice>) -> Result<u64> {
         let agent = &ctx.accounts.agent;
+        let config = &ctx.accounts.config;
     
         // Agent must be active
         require!(
@@ -128,16 +129,18 @@ pub mod agent_registry {
             CustomError::AgentInactive
         );
     
-        // Reputation gate
+        // Minimum Reputation gate
         require!(
-            agent.reputation >= 10,
+            agent.reputation >= config.min_reputation,
             CustomError::LowReputation
         );
     
-        let price = if agent.reputation >= 50 {
-            base / 2
+        let price = config.base_price;
+
+        let price = if agent.reputation >= config.discount_threshold { In Rust, if returns a value, so you assign the whole if expression to a variable.
+            base_price.checked_mul(100 - config.discount_percent as u64).unwrap().checked_div(100).unwrap()
         } else {
-            base
+            base_price
         };
     
         Ok(price)
@@ -312,19 +315,12 @@ pub struct GetPrice<'info> {
         seeds = [b"agent", agent.agent_pubkey.as_ref()],
         bump
     )]
-
     pub agent: Account<'info, Agent>,
-    pub user: Signer<'info>,
-}
 
-#[derive(Accounts)]
-pub struct UpdatePricingConfig<'info> {
     #[account(
-        mut,
         seeds = [b"config"],
         bump
     )]
-
     pub config: Account<'info, GlobalConfig>,
 
     pub user: Signer<'info>,
